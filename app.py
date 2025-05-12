@@ -1,3 +1,4 @@
+import time
 import tweepy
 import streamlit as st
 import tweepy
@@ -17,30 +18,51 @@ client = tweepy.Client(bearer_token=BEARER_TOKEN, wait_on_rate_limit=True)
 
 # === Helper: Discover Berachain Projects ===
 @st.cache_data(ttl=3600)
-def discover_projects_from_smokey(max_projects=20):
-    smokey_id = client.get_user(username="SmokeyTheBera").data.id
-    followed_users = get_followed_users(smokey_id, max_users=max_projects)
+def get_followed_users(smokey_username="SmokeyTheBera", max_users=10):
+    """Return a list of users followed by @SmokeyTheBera"""
+    smokey_user = client.get_user(username=smokey_username)
+    smokey_id = smokey_user.data.id
+
+    users = []
+    paginator = tweepy.Paginator(
+        client.get_users_following,
+        id=smokey_id,
+        max_results=100,
+        user_fields=["username", "name", "description"]
+    )
+
+    for page in paginator:
+        if page.data:
+            for user in page.data:
+                users.append({'id': user.id, 'name': user.name, 'username': user.username})
+                if len(users) >= max_users:
+                    return users
+    return users
+
+def discover_projects_from_smokey():
+    users = get_followed_users()
 
     results = []
-    for user in followed_users:
+    for user in users:
         try:
-            user_info = client.get_user(username=user["username"])
-            tweets = client.get_users_tweets(id=user_info.data.id, max_results=20).data
-            tweet_texts = [t.text for t in tweets] if tweets else []
+            with st.spinner(f"🔍 Scanning @{user['username']}..."):
+                tweets = client.get_users_tweets(id=user["id"], max_results=5).data
+                tweet_texts = [t.text for t in tweets] if tweets else []
 
-            # Run your token scoring and TGE check here...
-            score = score_token_likelihood(tweet_texts)
-            tge = extract_tge_info(tweet_texts) if score > 60 else None
+                score = score_token_likelihood(tweet_texts)
+                tge = extract_tge_info(tweet_texts) if score > 60 else None
 
-            results.append({
-                "Project": user["name"],
-                "Twitter": f"https://twitter.com/{user['username']}",
-                "Token Likelihood": f"{score}%",
-                "TGE Schedule": tge or "-"
-            })
+                results.append({
+                    "Project": user["name"],
+                    "Twitter": f"https://twitter.com/{user['username']}",
+                    "Token Likelihood": f"{score}%",
+                    "TGE Schedule": tge or "-"
+                })
         except Exception as e:
-            print(f"Error with @{user['username']}: {e}")
+            st.warning(f"Error with @{user['username']}: {e}")
+        time.sleep(0.5)
     return results
+
 
 
 smokey_user = client.get_user(username="SmokeyTheBera")
@@ -103,7 +125,7 @@ st.title("🧭 Berachain Token Launch Scanner")
 
 if st.button("Scan Twitter"):
     with st.spinner("Searching Twitter and analyzing projects..."):
-        projects = discover_projects(client)
+        projects = discover_projects_from_smokey()
 
         results = []
         for proj in projects:
