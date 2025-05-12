@@ -20,7 +20,7 @@ def scrape_twitter_accounts(query, max_results=1000):
     try:
         # Ensure snscrape is installed
         result = subprocess.run(
-            ["snscrape", "--jsonl", f"--max-results={max_results}", f"twitter-search", query],
+            ["snscrape", "--jsonl", f"--max-results={max_results}", "twitter-search", query],
             capture_output=True,
             text=True,  # Get output as text
             check=True, # Raise exception on non-zero exit
