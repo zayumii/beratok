@@ -5,7 +5,7 @@ import requests
 import re
 import pandas as pd
 from dateutil import parser
-import snscrape.modules.twitter as sntwitter
+import snscrape.modules.twitter.user as sntwitter
 
 # --- Token Scoring ---
 TOKEN_KEYWORDS = ['airdrop', 'token', 'launch', 'points', 'claim', 'rewards', 'mainnet']
@@ -44,7 +44,7 @@ def discover_projects_with_snscrape(stop_flag):
 
         st.info(f"🔍 Scanning @{username} using snscrape...")
         tweets = []
-        for i, tweet in enumerate(sntwitter.TwitterUserScraper(username).get_items()):
+       for i, tweet in enumerate(sntwitter.TwitterUserScraper(user=username).get_items()):
             if i >= 5:
                 break
             tweets.append(tweet.content)
