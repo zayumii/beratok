@@ -56,11 +56,16 @@ def get_smokey_followed_users(max_users=3):
     return users
 
 # --- Project Scanner ---
-def discover_projects_from_smokey():
+# --- Project Scanner ---
+def discover_projects_from_smokey(stop_flag):
     users = get_smokey_followed_users()
     results = []
 
-    for user in users:
+    for i, user in enumerate(users):
+        if stop_flag():
+            st.warning("🚫 Scan manually stopped.")
+            break
+
         try:
             with st.spinner(f"🔍 Scanning @{user['username']}..."):
                 tweets = client.get_users_tweets(id=user["id"], max_results=3).data
@@ -87,9 +92,15 @@ def discover_projects_from_smokey():
 st.set_page_config(page_title="Berachain Token Scanner", layout="wide")
 st.title("🧭 Berachain Token Launch Scanner - Rate Limit Safe")
 
-if st.button("Scan Projects Followed by @SmokeyTheBera"):
+run = st.button("▶️ Run Scan")
+stop = st.button("🛑 Stop Scan")
+
+def should_stop():
+    return stop
+
+if run and not stop:
     with st.spinner("Running safe scan..."):
-        df = discover_projects_from_smokey()
+        df = discover_projects_from_smokey(should_stop)
         if not df.empty:
             st.success("✅ Scan complete!")
             st.dataframe(df, use_container_width=True)
