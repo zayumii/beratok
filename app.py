@@ -16,6 +16,7 @@ BEARER_TOKEN = st.secrets["BEARER_TOKEN"]  # Replace this with your token
 client = tweepy.Client(bearer_token=BEARER_TOKEN, wait_on_rate_limit=True)
 
 # === Helper: Discover Berachain Projects ===
+@st.cache_data(ttl=3600)  # cache for 1 hour
 def discover_projects(client, max_projects=20):
     query = '"on @berachain" -is:retweet lang:en'
     tweets = client.search_recent_tweets(
