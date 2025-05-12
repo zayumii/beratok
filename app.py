@@ -17,35 +17,50 @@ client = tweepy.Client(bearer_token=BEARER_TOKEN, wait_on_rate_limit=True)
 
 # === Helper: Discover Berachain Projects ===
 @st.cache_data(ttl=3600)
-def discover_projects(_max_projects=20):
-    query = '"on @berachain" -is:retweet lang:en'
-    tweets = client.search_recent_tweets(
-        query=query,
+def discover_projects_from_smokey(max_projects=20):
+    smokey_id = client.get_user(username="SmokeyTheBera").data.id
+    followed_users = get_followed_users(smokey_id, max_users=max_projects)
+
+    results = []
+    for user in followed_users:
+        try:
+            user_info = client.get_user(username=user["username"])
+            tweets = client.get_users_tweets(id=user_info.data.id, max_results=20).data
+            tweet_texts = [t.text for t in tweets] if tweets else []
+
+            # Run your token scoring and TGE check here...
+            score = score_token_likelihood(tweet_texts)
+            tge = extract_tge_info(tweet_texts) if score > 60 else None
+
+            results.append({
+                "Project": user["name"],
+                "Twitter": f"https://twitter.com/{user['username']}",
+                "Token Likelihood": f"{score}%",
+                "TGE Schedule": tge or "-"
+            })
+        except Exception as e:
+            print(f"Error with @{user['username']}: {e}")
+    return results
+
+
+smokey_user = client.get_user(username="SmokeyTheBera")
+smokey_id = smokey_user.data.id
+
+def get_followed_users(user_id, max_users=50):
+    users = []
+    pagination = tweepy.Paginator(
+        client.get_users_following,
+        id=user_id,
         max_results=100,
-        tweet_fields=["author_id"]
+        user_fields=["username", "name", "description"]
     )
-
-    projects = []
-    seen_users = set()
-
-    if tweets.data:
-        for tweet in tweets.data:
-            user_id = tweet.author_id
-            if user_id in seen_users:
-                continue
-            try:
-                user = client.get_user(id=user_id, user_fields=["username", "name"])
-                if user.data:
-                    username = user.data.username
-                    name = user.data.name
-                    projects.append({'name': name, 'username': username})
-                    seen_users.add(user_id)
-                if len(projects) >= _max_projects:
-                    break
-            except Exception as e:
-                print(f"Error fetching user {user_id}: {e}")
-    return projects
-
+    for page in pagination:
+        if page.data:
+            for user in page.data:
+                users.append({'name': user.name, 'username': user.username})
+                if len(users) >= max_users:
+                    return users
+    return users
 
 # === Token Check ===
 def has_token_on_coingecko(project_name):
