@@ -5,7 +5,8 @@ import requests
 import re
 import pandas as pd
 from dateutil import parser
-import snscrape.modules.twitter.user as sntwitter
+import subprocess
+import json
 
 # --- Token Scoring ---
 TOKEN_KEYWORDS = ['airdrop', 'token', 'launch', 'points', 'claim', 'rewards', 'mainnet']
@@ -32,7 +33,18 @@ def extract_tge_info(tweets):
                 return match.group(0)
     return None
 
-# --- Project Scanner using snscrape ---
+# --- Get Tweets using CLI ---
+def get_recent_tweets(username, max_count=5):
+    command = f"snscrape --jsonl --max-results {max_count} twitter-user {username}"
+    try:
+        result = subprocess.check_output(command, shell=True, text=True)
+        tweets = [json.loads(line)["content"] for line in result.strip().split("\n")]
+        return tweets
+    except Exception as e:
+        st.error(f"Error scraping @{username}: {e}")
+        return []
+
+# --- Project Scanner using snscrape CLI ---
 def discover_projects_with_snscrape(stop_flag):
     usernames = ["orb_land", "berapunks", "chonk_station"]  # manually curated list of known Bera builders
     results = []
@@ -42,12 +54,8 @@ def discover_projects_with_snscrape(stop_flag):
             st.warning("🚫 Scan manually stopped.")
             break
 
-        st.info(f"🔍 Scanning @{username} using snscrape...")
-        tweets = []
-        for i, tweet in enumerate(sntwitter.TwitterUserScraper(user=username).get_items()):
-            if i >= 5:
-                break
-            tweets.append(tweet.content)
+        st.info(f"🔍 Scanning @{username} using snscrape CLI...")
+        tweets = get_recent_tweets(username, max_count=5)
 
         score = score_token_likelihood(tweets)
         tge = extract_tge_info(tweets) if score > 60 else None
