@@ -9,6 +9,7 @@ def install_packages():
     try:
         subprocess.run(["pip", "install", "snscrape"], check=True)
         subprocess.run(["pip", "install", "pandas"], check=True) # Add pandas installation
+        subprocess.run(["pip", "install", "--upgrade", "pip"], check=False)  # Update pip
         print("Packages installed successfully.")
         return True
     except subprocess.CalledProcessError as e:
