@@ -33,6 +33,16 @@ def extract_tge_info(tweets):
                 return match.group(0)
     return None
 
+# --- Get Profile Bios Using CLI ---
+def get_profile_bio(username):
+    command = f"snscrape --jsonl twitter-user {username}"
+    try:
+        result = subprocess.check_output(command, shell=True, text=True)
+        return json.loads(result.strip())['description']
+    except Exception as e:
+        st.error(f"❌ Error getting bio for @{username}: {e}")
+        return ""
+
 # --- Get Tweets using CLI ---
 def get_recent_tweets(username, max_count=5):
     command = f"snscrape --jsonl --max-results {max_count} twitter-user {username}"
@@ -41,12 +51,28 @@ def get_recent_tweets(username, max_count=5):
         tweets = [json.loads(line)["content"] for line in result.strip().split("\n")]
         return tweets
     except Exception as e:
-        st.error(f"Error scraping @{username}: {e}")
+        st.error(f"❌ Error scraping @{username}: {e}")
         return []
 
-# --- Project Scanner using snscrape CLI ---
+# --- Get Followed Users of SmokeyTheBera ---
+def get_followed_usernames(smokey_user="SmokeyTheBera", max_users=15):
+    command = f"snscrape --jsonl twitter-user {smokey_user} following"
+    usernames = []
+    try:
+        result = subprocess.check_output(command, shell=True, text=True)
+        for line in result.strip().split("\n"):
+            data = json.loads(line)
+            if "on @Berachain".lower() in data.get("description", "").lower():
+                usernames.append(data["username"])
+                if len(usernames) >= max_users:
+                    break
+    except Exception as e:
+        st.error(f"❌ Error retrieving followed users: {e}")
+    return usernames
+
+# --- Project Scanner ---
 def discover_projects_with_snscrape(stop_flag):
-    usernames = ["orb_land", "berapunks", "chonk_station"]  # manually curated list of known Bera builders
+    usernames = get_followed_usernames()
     results = []
 
     for username in usernames:
@@ -54,7 +80,7 @@ def discover_projects_with_snscrape(stop_flag):
             st.warning("🚫 Scan manually stopped.")
             break
 
-        st.info(f"🔍 Scanning @{username} using snscrape CLI...")
+        st.info(f"🔍 Scanning @{username}...")
         tweets = get_recent_tweets(username, max_count=5)
 
         score = score_token_likelihood(tweets)
