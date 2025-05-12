@@ -38,7 +38,7 @@ def get_profile_bio(username):
     command = f"snscrape --jsonl twitter-user {username}"
     try:
         result = subprocess.check_output(command, shell=True, text=True)
-        return json.loads(result.strip())['description']
+        return json.loads(result.strip())["description"]
     except Exception as e:
         st.error(f"❌ Error getting bio for @{username}: {e}")
         return ""
@@ -54,18 +54,16 @@ def get_recent_tweets(username, max_count=5):
         st.error(f"❌ Error scraping @{username}: {e}")
         return []
 
-# --- Get Followed Users of SmokeyTheBera ---
-def get_followed_usernames(smokey_user="SmokeyTheBera", max_users=15):
-    command = f"snscrape --jsonl twitter-user {smokey_user} following"
+# --- Fetch all users followed by @SmokeyTheBera ---
+def get_followed_usernames():
     usernames = []
+    command = f"snscrape --jsonl twitter-user SmokeyTheBera following"
     try:
         result = subprocess.check_output(command, shell=True, text=True)
         for line in result.strip().split("\n"):
             data = json.loads(line)
-            if "on @Berachain".lower() in data.get("description", "").lower():
+            if "on @Berachain" in data.get("description", ""):
                 usernames.append(data["username"])
-                if len(usernames) >= max_users:
-                    break
     except Exception as e:
         st.error(f"❌ Error retrieving followed users: {e}")
     return usernames
@@ -73,6 +71,7 @@ def get_followed_usernames(smokey_user="SmokeyTheBera", max_users=15):
 # --- Project Scanner ---
 def discover_projects_with_snscrape(stop_flag):
     usernames = get_followed_usernames()
+    st.info(f"Found {len(usernames)} users with 'on @Berachain' in bio")
     results = []
 
     for username in usernames:
@@ -82,6 +81,9 @@ def discover_projects_with_snscrape(stop_flag):
 
         st.info(f"🔍 Scanning @{username}...")
         tweets = get_recent_tweets(username, max_count=5)
+
+        if not tweets:
+            continue  # Skip inactive accounts
 
         score = score_token_likelihood(tweets)
         tge = extract_tge_info(tweets) if score > 60 else None
@@ -95,7 +97,8 @@ def discover_projects_with_snscrape(stop_flag):
 
         time.sleep(1)
 
-    return pd.DataFrame(results)
+    df = pd.DataFrame(results)
+    return df.sort_values(by="Token Likelihood", ascending=False, key=lambda col: col.str.rstrip('%').astype(int))
 
 # --- Streamlit UI ---
 st.set_page_config(page_title="Berachain Token Scanner", layout="wide")
