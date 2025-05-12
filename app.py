@@ -1,16 +1,12 @@
 # app.py
 import streamlit as st
-import tweepy
 import time
 import requests
 import re
 import pandas as pd
 from dateutil import parser
-from datetime import timedelta
-
-# Set up Twitter API
-BEARER_TOKEN = st.secrets["BEARER_TOKEN"]
-client = tweepy.Client(bearer_token=BEARER_TOKEN, wait_on_rate_limit=True)
+from bs4 import BeautifulSoup
+import snscrape.modules.twitter as sntwitter
 
 # --- Token Scoring ---
 TOKEN_KEYWORDS = ['airdrop', 'token', 'launch', 'points', 'claim', 'rewards', 'mainnet']
@@ -37,64 +33,40 @@ def extract_tge_info(tweets):
                 return match.group(0)
     return None
 
-# --- Fetch Smokey's Followed Users (safe) ---
-@st.cache_data(ttl=3600)
-def get_smokey_followed_users(max_users=3):
-    smokey_id = client.get_user(username="SmokeyTheBera").data.id
-    users = []
-    paginator = tweepy.Paginator(
-        client.get_users_following,
-        id=smokey_id,
-        max_results=100,
-        user_fields=["username", "name"]
-    )
-    for page in paginator:
-        if page.data:
-            for user in page.data:
-                users.append({'id': user.id, 'name': user.name, 'username': user.username})
-                if len(users) >= max_users:
-                    return users
-    return users
-
-# --- Project Scanner ---
-def discover_projects_from_smokey(stop_flag):
-    users = get_smokey_followed_users()
+# --- Project Scanner using snscrape ---
+def discover_projects_with_snscrape(stop_flag):
+    usernames = ["orb_land", "berapunks", "chonk_station"]  # manually curated list of known Bera builders
     results = []
-    sleep_duration = 1.5
 
-    for i, user in enumerate(users):
+    for username in usernames:
         if stop_flag():
             st.warning("🚫 Scan manually stopped.")
             break
 
-        try:
-            with st.spinner(f"🔍 Scanning @{user['username']}..."):
-                tweets = client.get_users_tweets(id=user["id"], max_results=3).data
-                tweet_texts = [t.text for t in tweets] if tweets else []
+        st.info(f"🔍 Scanning @{username} using snscrape...")
+        tweets = []
+        for i, tweet in enumerate(sntwitter.TwitterUserScraper(username).get_items()):
+            if i >= 5:
+                break
+            tweets.append(tweet.content)
 
-                score = score_token_likelihood(tweet_texts)
-                tge = extract_tge_info(tweet_texts) if score > 60 else None
+        score = score_token_likelihood(tweets)
+        tge = extract_tge_info(tweets) if score > 60 else None
 
-                results.append({
-                    "Project": user["name"],
-                    "Twitter": f"https://twitter.com/{user['username']}",
-                    "Token Likelihood": f"{score}%",
-                    "TGE Schedule": tge or "-"
-                })
+        results.append({
+            "Project": username,
+            "Twitter": f"https://twitter.com/{username}",
+            "Token Likelihood": f"{score}%",
+            "TGE Schedule": tge or "-"
+        })
 
-        except Exception as e:
-            st.warning(f"Error with @{user['username']}: {e}")
-
-        minutes = int(sleep_duration // 60)
-        seconds = int(sleep_duration % 60)
-        st.info(f"🕒 Rate limit buffer: waiting {minutes:02d}:{seconds:02d} before next call...")
-        time.sleep(sleep_duration)
+        time.sleep(1)
 
     return pd.DataFrame(results)
 
 # --- Streamlit UI ---
 st.set_page_config(page_title="Berachain Token Scanner", layout="wide")
-st.title("🧭 Berachain Token Launch Scanner - Rate Limit Safe")
+st.title("🧭 Berachain Token Launch Scanner - Free Mode (No Twitter API)")
 
 run = st.button("▶️ Run Scan")
 stop = st.button("🛑 Stop Scan")
@@ -103,8 +75,8 @@ def should_stop():
     return stop
 
 if run and not stop:
-    with st.spinner("Running safe scan..."):
-        df = discover_projects_from_smokey(should_stop)
+    with st.spinner("Running free-mode scan..."):
+        df = discover_projects_with_snscrape(should_stop)
         if not df.empty:
             st.success("✅ Scan complete!")
             st.dataframe(df, use_container_width=True)
