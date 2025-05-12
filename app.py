@@ -39,7 +39,10 @@ def get_followed_users(smokey_username="SmokeyTheBera", max_users=10):
     return users
 
 def discover_projects_from_smokey():
-    users = get_followed_users()
+    smokey_user = client.get_user(username="SmokeyTheBera")
+    smokey_id = smokey_user.data.id
+
+    users = get_followed_users(user_id=smokey_id, max_users=10)
 
     results = []
     for user in users:
@@ -61,11 +64,6 @@ def discover_projects_from_smokey():
             st.warning(f"Error with @{user['username']}: {e}")
         time.sleep(0.5)
     return results
-
-
-
-smokey_user = client.get_user(username="SmokeyTheBera")
-smokey_id = smokey_user.data.id
 
 def get_followed_users(user_id, max_users=50):
     users = []
