@@ -17,7 +17,6 @@ BEARER_TOKEN = st.secrets["BEARER_TOKEN"]  # Replace this with your token
 client = tweepy.Client(bearer_token=BEARER_TOKEN, wait_on_rate_limit=True)
 
 # === Helper: Discover Berachain Projects ===
-@st.cache_data(ttl=3600)
 def get_followed_users(smokey_username="SmokeyTheBera", max_users=10):
     """Return a list of users followed by @SmokeyTheBera"""
     smokey_user = client.get_user(username=smokey_username)
