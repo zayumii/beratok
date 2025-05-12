@@ -44,7 +44,7 @@ def discover_projects_with_snscrape(stop_flag):
 
         st.info(f"🔍 Scanning @{username} using snscrape...")
         tweets = []
-    for i, tweet in enumerate(sntwitter.TwitterUserScraper(user=username).get_items()):
+        for i, tweet in enumerate(sntwitter.TwitterUserScraper(user=username).get_items()):
             if i >= 5:
                 break
             tweets.append(tweet.content)
