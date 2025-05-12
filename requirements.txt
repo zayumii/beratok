@@ -1,4 +1,4 @@
 streamlit
-requests
-python-dateutil
 pandas
+python-dateutil
+snscrape
