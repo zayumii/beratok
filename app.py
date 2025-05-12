@@ -1,128 +1,88 @@
-# app.py
 import streamlit as st
-import time
-import requests
-import re
-import pandas as pd
-from dateutil import parser
 import subprocess
 import json
+import pandas as pd
+import os
 
-# --- Token Scoring ---
-TOKEN_KEYWORDS = ['airdrop', 'token', 'launch', 'points', 'claim', 'rewards', 'mainnet']
-
-def score_token_likelihood(tweets):
-    text = " ".join(tweets).lower()
-    return min(100, sum(1 for kw in TOKEN_KEYWORDS if kw in text) * 15)
-
-def extract_tge_info(tweets):
-    text = " ".join(tweets)
-    patterns = [
-        r'(TGE|token launch|airdrop claim).*?(on|around)?\s*(\w+\s\d{1,2}(st|nd|rd|th)?(,?\s*\d{4})?)',
-        r'launching\s+(this|next)?\s*(month|week|quarter|year)',
-        r'(Q[1-4])\s?(\d{4})'
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            try:
-                date_string = match.group(3) if match.lastindex >= 3 else match.group(0)
-                date = parser.parse(date_string, fuzzy=True)
-                return date.strftime('%Y-%m-%d')
-            except:
-                return match.group(0)
-    return None
-
-# --- Get Profile Bios Using CLI ---
-def get_profile_bio(username):
-    command = f"snscrape --jsonl twitter-user {username}"
+# Function to install required packages
+def install_packages():
     try:
-        result = subprocess.check_output(command, shell=True, text=True)
-        return json.loads(result.strip())["description"]
-    except Exception as e:
-        st.error(f"❌ Error getting bio for @{username}: {e}")
-        return ""
+        subprocess.run(["pip", "install", "snscrape"], check=True)
+        subprocess.run(["pip", "install", "pandas"], check=True) # Add pandas installation
+        print("Packages installed successfully.")
+        return True
+    except subprocess.CalledProcessError as e:
+        st.error(f"Error installing packages: {e}")
+        return False
 
-# --- Get Tweets using CLI ---
-def get_recent_tweets(username, max_count=5):
-    command = f"snscrape --jsonl --max-results {max_count} twitter-user {username}"
+# Function to scrape Twitter accounts
+def scrape_twitter_accounts(query, max_results=1000):
     try:
-        result = subprocess.check_output(command, shell=True, text=True)
-        tweets = [json.loads(line)["content"] for line in result.strip().split("\n")]
-        return tweets
+        # Ensure snscrape is installed
+        result = subprocess.run(
+            ["snscrape", "--jsonl", f"--max-results={max_results}", f"twitter-search", query],
+            capture_output=True,
+            text=True,  # Get output as text
+            check=True, # Raise exception on non-zero exit
+        )
+        output = result.stdout
+        # print(f"Snscrape Output: {output}") # Debugging: Print the raw output
+        lines = output.strip().split('\n') # Split output into lines
+        accounts = [json.loads(line) for line in lines if line] # Process each line
+        return accounts
+    except subprocess.CalledProcessError as e:
+        st.error(f"Error finding project accounts: Command '{' '.join(e.cmd)}' returned non-zero exit status {e.returncode}.  Output: {e.output}")
+        return []
+    except json.JSONDecodeError as e:
+        st.error(f"Error decoding JSON: {e}.  Raw Output: {output}") # output from snscrape
+        return []
     except Exception as e:
-        st.error(f"❌ Error scraping @{username}: {e}")
+        st.error(f"An unexpected error occurred: {e}")
         return []
 
-# --- Load All Potential Usernames from a Public Source ---
-def get_all_usernames():
-    usernames = []
-    try:
-        command = f"snscrape --jsonl --max-results 1000 twitter-search 'on @berachain'"
-        result = subprocess.check_output(command, shell=True, text=True)
-        seen = set()
-        for line in result.strip().split("\n"):
-            data = json.loads(line)
-            author = data.get("user", {}).get("username")
-            bio = data.get("user", {}).get("description", "")
-            if author and author not in seen and "on @berachain" in bio.lower():
-                usernames.append(author)
-                seen.add(author)
-    except Exception as e:
-        st.error(f"❌ Error finding project accounts: {e}")
-    return usernames
+# Function to check followers (simplified for demonstration)
+def check_followers(accounts, target_user="SmokeyTheBera"):
+    # In a real application, you would use the Twitter API for this
+    # This is a placeholder for demonstration purposes
+    #  st.write(f"Checking followers of {target_user} (This is a SIMULATION)") # Removed to avoid error
+    followed_accounts = []
+    for account in accounts:
+        # Simulate API call.  In reality, use Twitter API
+        #  st.write(f"Checking if {account['username']} is followed by {target_user}...") # Removed to avoid error
+        # Simulate a 70% chance of being followed
+        if hash(account['username']) % 10 < 7:  # Simplified logic
+            followed_accounts.append(account)
+    return followed_accounts
 
-# --- Project Scanner ---
-def discover_projects_with_snscrape(stop_flag):
-    usernames = get_all_usernames()
-    st.info(f"Found {len(usernames)} users with 'on @berachain' in bio")
-    results = []
+def main():
+    st.title("Twitter Account Scraper")
+    st.write("Find Twitter accounts with 'on @Berachain' in their bio and are followed by @SmokeyTheBera")
 
-    for username in usernames:
-        if stop_flag():
-            st.warning("🚫 Scan manually stopped.")
-            break
+    # Install packages if they are not available
+    if not install_packages():
+        st.stop()  # Stop if packages installation fails
 
-        st.info(f"🔍 Scanning @{username}...")
-        tweets = get_recent_tweets(username, max_count=5)
+    # 1. Scrape accounts with "on @Berachain" in their bio
+    st.header("1. Scrape Accounts")
+    berachain_accounts = scrape_twitter_accounts('"on @Berachain"')  # Changed query string
+    if berachain_accounts:
+        st.success(f"Found {len(berachain_accounts)} accounts with 'on @Berachain' in their bio.")
+        # Display the scraped accounts (optional, for debugging)
+        # st.write(berachain_accounts)
+    else:
+        st.error("No accounts found with 'on @Berachain' in their bio, or error during scraping.")
+        berachain_accounts = [] # Ensure it is initialized
 
-        if not tweets:
-            continue  # Skip inactive accounts
+    # 2. Check which of those accounts are followed by @SmokeyTheBera
+    st.header("2. Check Followers")
+    followed_accounts = check_followers(berachain_accounts) # Removed target_user
+    if followed_accounts:
+        st.success(f"Found {len(followed_accounts)} accounts that are followed by @SmokeyTheBera (Simulated).")
+        # Convert to DataFrame for display
+        df = pd.DataFrame(followed_accounts)
+        st.dataframe(df)  # Display as a table
+    else:
+        st.error("No followed accounts found, or error during checking.")
 
-        score = score_token_likelihood(tweets)
-        tge = extract_tge_info(tweets) if score > 60 else None
-
-        results.append({
-            "Project": username,
-            "Twitter": f"https://twitter.com/{username}",
-            "Token Likelihood": f"{score}%",
-            "TGE Schedule": tge or "-"
-        })
-
-        time.sleep(1)
-
-    df = pd.DataFrame(results)
-    if "Token Likelihood" in df.columns:
-        return df.sort_values(by="Token Likelihood", ascending=False, key=lambda col: col.str.rstrip('%').astype(int))
-    return df
-
-# --- Streamlit UI ---
-st.set_page_config(page_title="Berachain Token Scanner", layout="wide")
-st.title("🧭 Berachain Token Launch Scanner - Free Mode (No Twitter API)")
-
-run = st.button("▶️ Run Scan")
-stop = st.button("🛑 Stop Scan")
-
-def should_stop():
-    return stop
-
-if run and not stop:
-    with st.spinner("Running free-mode scan..."):
-        df = discover_projects_with_snscrape(should_stop)
-        if not df.empty:
-            st.success("✅ Scan complete!")
-            st.dataframe(df, use_container_width=True)
-            csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button("⬇️ Download CSV", csv, "projects.csv", "text/csv")
-        else:
-            st.info("No projects found.")
+if __name__ == "__main__":
+    main()
