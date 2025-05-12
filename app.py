@@ -8,7 +8,7 @@ from dateutil import parser
 
 import streamlit as st
 
-BEARER_TOKEN = st.secrets["BEARER_TOKEN"]  # Your token from secrets
+BEARER_TOKEN = st.secrets["BEARER_TOKEN"]
 client = tweepy.Client(bearer_token=BEARER_TOKEN, wait_on_rate_limit=True)
 
 # === Twitter API Setup ===
@@ -17,7 +17,7 @@ client = tweepy.Client(bearer_token=BEARER_TOKEN, wait_on_rate_limit=True)
 
 # === Helper: Discover Berachain Projects ===
 @st.cache_data(ttl=3600)
-def discover_projects(max_projects=20):
+def discover_projects(_max_projects=20):
     query = '"on @berachain" -is:retweet lang:en'
     tweets = client.search_recent_tweets(
         query=query,
@@ -40,7 +40,7 @@ def discover_projects(max_projects=20):
                     name = user.data.name
                     projects.append({'name': name, 'username': username})
                     seen_users.add(user_id)
-                if len(projects) >= max_projects:
+                if len(projects) >= _max_projects:
                     break
             except Exception as e:
                 print(f"Error fetching user {user_id}: {e}")
