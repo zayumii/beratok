@@ -1,0 +1,13 @@
+services:
+
+type: web
+name: beratok-scanner
+env: python
+buildCommand: |
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install snscrape
+startCommand: streamlit run app.py --server.port $PORT
+plan: free
+autoDeploy: false
+
