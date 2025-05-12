@@ -6,7 +6,7 @@ import pandas as pd
 from dateutil import parser
 
 # === Twitter API Setup ===
-BEARER_TOKEN = "YOUR_TWITTER_BEARER_TOKEN"  # Replace this with your token
+BEARER_TOKEN = st.secrets["BEARER_TOKEN"]  # Replace this with your token
 client = tweepy.Client(bearer_token=BEARER_TOKEN, wait_on_rate_limit=True)
 
 # === Helper: Discover Berachain Projects ===
