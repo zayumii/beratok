@@ -6,6 +6,7 @@ import requests
 import re
 import pandas as pd
 from dateutil import parser
+from datetime import timedelta
 
 # Set up Twitter API
 BEARER_TOKEN = st.secrets["BEARER_TOKEN"]
@@ -56,10 +57,10 @@ def get_smokey_followed_users(max_users=3):
     return users
 
 # --- Project Scanner ---
-# --- Project Scanner ---
 def discover_projects_from_smokey(stop_flag):
     users = get_smokey_followed_users()
     results = []
+    sleep_duration = 1.5
 
     for i, user in enumerate(users):
         if stop_flag():
@@ -84,7 +85,10 @@ def discover_projects_from_smokey(stop_flag):
         except Exception as e:
             st.warning(f"Error with @{user['username']}: {e}")
 
-        time.sleep(1.5)  # avoid hitting rate limit
+        minutes = int(sleep_duration // 60)
+        seconds = int(sleep_duration % 60)
+        st.info(f"🕒 Rate limit buffer: waiting {minutes:02d}:{seconds:02d} before next call...")
+        time.sleep(sleep_duration)
 
     return pd.DataFrame(results)
 
