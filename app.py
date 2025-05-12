@@ -54,24 +54,28 @@ def get_recent_tweets(username, max_count=5):
         st.error(f"❌ Error scraping @{username}: {e}")
         return []
 
-# --- Fetch all users followed by @SmokeyTheBera ---
-def get_followed_usernames():
+# --- Load All Potential Usernames from a Public Source ---
+def get_all_usernames():
     usernames = []
-    command = f"snscrape --jsonl twitter-user SmokeyTheBera following"
     try:
+        command = f"snscrape --jsonl --max-results 1000 twitter-search 'on @berachain'"
         result = subprocess.check_output(command, shell=True, text=True)
+        seen = set()
         for line in result.strip().split("\n"):
             data = json.loads(line)
-            if "on @Berachain" in data.get("description", ""):
-                usernames.append(data["username"])
+            author = data.get("user", {}).get("username")
+            bio = data.get("user", {}).get("description", "")
+            if author and author not in seen and "on @berachain" in bio.lower():
+                usernames.append(author)
+                seen.add(author)
     except Exception as e:
-        st.error(f"❌ Error retrieving followed users: {e}")
+        st.error(f"❌ Error finding project accounts: {e}")
     return usernames
 
 # --- Project Scanner ---
 def discover_projects_with_snscrape(stop_flag):
-    usernames = get_followed_usernames()
-    st.info(f"Found {len(usernames)} users with 'on @Berachain' in bio")
+    usernames = get_all_usernames()
+    st.info(f"Found {len(usernames)} users with 'on @berachain' in bio")
     results = []
 
     for username in usernames:
@@ -100,8 +104,7 @@ def discover_projects_with_snscrape(stop_flag):
     df = pd.DataFrame(results)
     if "Token Likelihood" in df.columns:
         return df.sort_values(by="Token Likelihood", ascending=False, key=lambda col: col.str.rstrip('%').astype(int))
-return df
-
+    return df
 
 # --- Streamlit UI ---
 st.set_page_config(page_title="Berachain Token Scanner", layout="wide")
