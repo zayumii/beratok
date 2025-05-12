@@ -98,7 +98,10 @@ def discover_projects_with_snscrape(stop_flag):
         time.sleep(1)
 
     df = pd.DataFrame(results)
+    if "Token Likelihood" in df.columns:
     return df.sort_values(by="Token Likelihood", ascending=False, key=lambda col: col.str.rstrip('%').astype(int))
+return df
+
 
 # --- Streamlit UI ---
 st.set_page_config(page_title="Berachain Token Scanner", layout="wide")
