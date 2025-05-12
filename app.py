@@ -5,7 +5,6 @@ import requests
 import re
 import pandas as pd
 from dateutil import parser
-from bs4 import BeautifulSoup
 import snscrape.modules.twitter as sntwitter
 
 # --- Token Scoring ---
