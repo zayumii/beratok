@@ -1,3 +1,4 @@
+import tweepy
 import streamlit as st
 import tweepy
 import requests
@@ -5,20 +6,45 @@ import re
 import pandas as pd
 from dateutil import parser
 
+import streamlit as st
+
+BEARER_TOKEN = st.secrets["BEARER_TOKEN"]  # Your token from secrets
+client = tweepy.Client(bearer_token=BEARER_TOKEN, wait_on_rate_limit=True)
+
 # === Twitter API Setup ===
 BEARER_TOKEN = st.secrets["BEARER_TOKEN"]  # Replace this with your token
 client = tweepy.Client(bearer_token=BEARER_TOKEN, wait_on_rate_limit=True)
 
 # === Helper: Discover Berachain Projects ===
-def discover_projects():
-    query = '"on @berachain" -is:retweet'
-    results = client.search_users(query=query, max_results=20)
+def discover_projects(client, max_projects=20):
+    query = '"on @berachain" -is:retweet lang:en'
+    tweets = client.search_recent_tweets(
+        query=query,
+        max_results=100,
+        tweet_fields=["author_id"]
+    )
+
     projects = []
-    if results.data:
-        for user in results.data:
-            if user.username:
-                projects.append({'name': user.name, 'username': user.username})
+    seen_users = set()
+
+    if tweets.data:
+        for tweet in tweets.data:
+            user_id = tweet.author_id
+            if user_id in seen_users:
+                continue
+            try:
+                user = client.get_user(id=user_id, user_fields=["username", "name"])
+                if user.data:
+                    username = user.data.username
+                    name = user.data.name
+                    projects.append({'name': name, 'username': username})
+                    seen_users.add(user_id)
+                if len(projects) >= max_projects:
+                    break
+            except Exception as e:
+                print(f"Error fetching user {user_id}: {e}")
     return projects
+
 
 # === Token Check ===
 def has_token_on_coingecko(project_name):
@@ -61,7 +87,7 @@ st.title("🧭 Berachain Token Launch Scanner")
 
 if st.button("Scan Twitter"):
     with st.spinner("Searching Twitter and analyzing projects..."):
-        projects = discover_projects()
+        projects = discover_projects(client)
 
         results = []
         for proj in projects:
