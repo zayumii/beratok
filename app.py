@@ -7,7 +7,6 @@ import pandas as pd
 from dateutil import parser
 import subprocess
 import json
-from bs4 import BeautifulSoup
 
 # --- Token Scoring ---
 TOKEN_KEYWORDS = ['airdrop', 'token', 'launch', 'points', 'claim', 'rewards', 'mainnet']
@@ -47,20 +46,29 @@ def get_recent_tweets(username, max_count=5):
         st.warning(f"❌ Error scraping @{username}: {e}")
         return []
 
-# --- Fallback: Scrape BeraLand Web Page for Project Twitter Handles ---
-def fallback_beraland_handles():
-    handles = []
+# --- Fallback: Fetch Projects from BeraLand ---
+def fetch_beraland_projects():
+    url = "https://app.beraland.xyz/api/ecosystem"
     try:
-        html = requests.get("https://app.beraland.xyz/dl/Ecosystem").text
-        soup = BeautifulSoup(html, "html.parser")
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            if "twitter.com" in href:
-                handle = href.rstrip("/").split("/")[-1].replace("@", "")
-                if handle and handle not in handles:
-                    handles.append(handle)
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error(f"Failed to fetch BeraLand projects: {response.status_code}")
+            return []
     except Exception as e:
-        st.warning(f"⚠️ Failed to scrape BeraLand front-end: {e}")
+        st.error(f"Failed to reach BeraLand API: {e}")
+        return []
+
+# --- Parse twitter handles ---
+def extract_twitter_handles(projects):
+    handles = []
+    for project in projects:
+        url = project.get("twitter")
+        if url and "twitter.com" in url:
+            handle = url.rstrip("/").split("/")[-1].replace("@", "")
+            if handle and handle not in handles:
+                handles.append(handle)
     return handles
 
 # --- Attempt CLI scrape of users with "on @Berachain" in bio ---
@@ -85,8 +93,9 @@ def try_scrape_on_berachain_usernames():
 def discover_projects_from_beraland(stop_flag):
     usernames = try_scrape_on_berachain_usernames()
     if not usernames:
-        st.info("🔁 Falling back to scraping project list from BeraLand front-end")
-        usernames = fallback_beraland_handles()
+        st.info("🔁 Falling back to project list from BeraLand")
+        projects = fetch_beraland_projects()
+        usernames = extract_twitter_handles(projects)
 
     st.info(f"🔎 Scanning {len(usernames)} project accounts...")
 
