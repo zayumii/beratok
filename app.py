@@ -46,10 +46,11 @@ def get_recent_tweets(username, max_count=5):
         st.warning(f"❌ Error scraping @{username}: {e}")
         return []
 
-# --- Load Twitter handles from static sheet ---
-def get_beraland_handles():
+# --- Load Twitter handles from GitHub-hosted CSV ---
+def get_project_handles():
+    url = "https://raw.githubusercontent.com/zayumii/beratok/main/Beraco%20-%20Sheet2.csv"
     try:
-        df = pd.read_csv("/mnt/data/Beraco - Sheet2.csv")
+        df = pd.read_csv(url)
         twitter_links = df["Twitter"] if "Twitter" in df.columns else []
         handles = []
         for link in twitter_links:
@@ -58,13 +59,13 @@ def get_beraland_handles():
                 handles.append(handle)
         return list(set(handles))
     except Exception as e:
-        st.error(f"❌ Failed to load handles from sheet: {e}")
+        st.error(f"❌ Failed to load handles from GitHub CSV: {e}")
         return []
 
 # --- Scanner ---
-def discover_projects_from_beraland(stop_flag):
-    usernames = get_beraland_handles()
-    st.info(f"🔎 Scanning {len(usernames)} project accounts from BeraLand sheet...")
+def discover_projects(stop_flag):
+    usernames = get_project_handles()
+    st.info(f"🔎 Scanning {len(usernames)} project accounts from CSV...")
 
     results = []
     for handle in usernames:
@@ -106,7 +107,7 @@ def should_stop():
 
 if run and not stop:
     with st.spinner("Running ecosystem scan..."):
-        df = discover_projects_from_beraland(should_stop)
+        df = discover_projects(should_stop)
         if not df.empty:
             st.success("✅ Scan complete!")
             st.dataframe(df, use_container_width=True)
