@@ -8,6 +8,7 @@ from dateutil import parser
 import subprocess
 import json
 import urllib.parse
+import shutil
 
 # --- Token Scoring ---
 TOKEN_KEYWORDS = ['airdrop', 'token', 'launch', 'points', 'claim', 'rewards', 'mainnet']
@@ -38,6 +39,10 @@ def extract_tge_info(tweets):
 
 # --- Get Tweets using CLI ---
 def get_recent_tweets(username, max_count=5):
+    if not shutil.which("snscrape"):
+        st.error("❌ snscrape is not installed or not available in this environment.")
+        return []
+
     command = f"snscrape --jsonl --max-results {max_count} twitter-user {username}"
     try:
         result = subprocess.check_output(command, shell=True, text=True)
