@@ -7,6 +7,7 @@ import pandas as pd
 from dateutil import parser
 import subprocess
 import json
+from bs4 import BeautifulSoup
 
 # --- Token Scoring ---
 TOKEN_KEYWORDS = ['airdrop', 'token', 'launch', 'points', 'claim', 'rewards', 'mainnet']
@@ -46,58 +47,26 @@ def get_recent_tweets(username, max_count=5):
         st.warning(f"❌ Error scraping @{username}: {e}")
         return []
 
-# --- Fallback: Fetch Projects from BeraLand ---
-def fetch_beraland_projects():
-    url = "https://app.beraland.xyz/api/ecosystem"
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            st.error(f"Failed to fetch BeraLand projects: {response.status_code}")
-            return []
-    except Exception as e:
-        st.error(f"Failed to reach BeraLand API: {e}")
-        return []
-
-# --- Parse twitter handles ---
-def extract_twitter_handles(projects):
+# --- Scrape BeraLand Web Page for Project Twitter Handles ---
+def get_beraland_handles():
     handles = []
-    for project in projects:
-        url = project.get("twitter")
-        if url and "twitter.com" in url:
-            handle = url.rstrip("/").split("/")[-1].replace("@", "")
-            if handle and handle not in handles:
-                handles.append(handle)
-    return handles
-
-# --- Attempt CLI scrape of users with "on @Berachain" in bio ---
-def try_scrape_on_berachain_usernames():
-    usernames = []
-    command = f"snscrape --jsonl --max-results 1000 twitter-search 'on @berachain'"
     try:
-        result = subprocess.check_output(command, shell=True, text=True)
-        seen = set()
-        for line in result.strip().split("\n"):
-            data = json.loads(line)
-            author = data.get("user", {}).get("username")
-            bio = data.get("user", {}).get("description", "")
-            if author and author not in seen and "on @berachain" in bio.lower():
-                usernames.append(author)
-                seen.add(author)
+        html = requests.get("https://app.beraland.xyz/dl/Ecosystem").text
+        soup = BeautifulSoup(html, "html.parser")
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if "twitter.com" in href:
+                handle = href.rstrip("/").split("/")[-1].replace("@", "")
+                if handle and handle not in handles:
+                    handles.append(handle)
     except Exception as e:
-        st.warning(f"⚠️ Could not scrape 'on @berachain' bios. Reason: {e}")
-    return usernames
+        st.warning(f"⚠️ Failed to scrape BeraLand front-end: {e}")
+    return handles
 
 # --- Scanner ---
 def discover_projects_from_beraland(stop_flag):
-    usernames = try_scrape_on_berachain_usernames()
-    if not usernames:
-        st.info("🔁 Falling back to project list from BeraLand")
-        projects = fetch_beraland_projects()
-        usernames = extract_twitter_handles(projects)
-
-    st.info(f"🔎 Scanning {len(usernames)} project accounts...")
+    usernames = get_beraland_handles()
+    st.info(f"🔎 Scanning {len(usernames)} project accounts from BeraLand...")
 
     results = []
     for handle in usernames:
