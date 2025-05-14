@@ -7,7 +7,6 @@ import pandas as pd
 from dateutil import parser
 import subprocess
 import json
-from bs4 import BeautifulSoup
 
 # --- Token Scoring ---
 TOKEN_KEYWORDS = ['airdrop', 'token', 'launch', 'points', 'claim', 'rewards', 'mainnet']
@@ -47,37 +46,25 @@ def get_recent_tweets(username, max_count=5):
         st.warning(f"❌ Error scraping @{username}: {e}")
         return []
 
-# --- Scrape BeraLand Web Page for Project Twitter Handles ---
+# --- Load Twitter handles from static sheet ---
 def get_beraland_handles():
-    handles = []
     try:
-        html = requests.get("https://app.beraland.xyz/dl/Ecosystem").text
-        soup = BeautifulSoup(html, "html.parser")
-        project_cards = soup.find_all("a", href=True)
-        for card in project_cards:
-            project_url = card["href"]
-            if project_url.startswith("/dl/Ecosystem/m/"):
-                full_url = f"https://app.beraland.xyz{project_url}"
-                try:
-                    project_html = requests.get(full_url).text
-                    project_soup = BeautifulSoup(project_html, "html.parser")
-                    for a in project_soup.find_all("a", href=True):
-                        href = a["href"]
-                        if "twitter.com" in href:
-                            handle = href.rstrip("/").split("/")[-1].replace("@", "")
-                            if handle and handle not in handles:
-                                handles.append(handle)
-                            break
-                except:
-                    continue
+        df = pd.read_csv("/mnt/data/Beraco - Sheet2.csv")
+        twitter_links = df["Twitter"] if "Twitter" in df.columns else []
+        handles = []
+        for link in twitter_links:
+            if isinstance(link, str) and "twitter.com" in link:
+                handle = link.rstrip("/").split("/")[-1].replace("@", "")
+                handles.append(handle)
+        return list(set(handles))
     except Exception as e:
-        st.warning(f"⚠️ Failed to scrape BeraLand front-end: {e}")
-    return handles
+        st.error(f"❌ Failed to load handles from sheet: {e}")
+        return []
 
 # --- Scanner ---
 def discover_projects_from_beraland(stop_flag):
     usernames = get_beraland_handles()
-    st.info(f"🔎 Scanning {len(usernames)} project accounts from BeraLand...")
+    st.info(f"🔎 Scanning {len(usernames)} project accounts from BeraLand sheet...")
 
     results = []
     for handle in usernames:
