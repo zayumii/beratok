@@ -60,8 +60,9 @@ def get_project_handles():
                 parsed = urllib.parse.urlparse(link)
                 path = parsed.path.rstrip("/")
                 if path:
-                    handle = path.split("/")[-1].split("?")[0].replace("@", "")
-                    handles.append(handle)
+                    handle = path.split("/")[-1].split("?")[0].replace("@", "").strip()
+                    if handle:
+                        handles.append(handle)
         return list(set(handles))
     except Exception as e:
         st.error(f"❌ Failed to load handles from GitHub CSV: {e}")
@@ -74,6 +75,10 @@ def discover_projects(stop_flag):
 
     results = []
     for handle in usernames:
+        if not handle or " " in handle or "/" in handle or "?" in handle:
+            st.warning(f"⚠️ Skipping invalid handle: {handle}")
+            continue
+
         if stop_flag():
             st.warning("🚫 Scan manually stopped.")
             break
