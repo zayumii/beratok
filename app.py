@@ -56,7 +56,7 @@ def get_project_handles():
         handles = []
         for link in twitter_links:
             if isinstance(link, str) and "twitter.com" in link:
-                handle = link.rstrip("/").split("/")[-1].replace("@", "")
+                handle = re.sub(r'\?.*$', '', link.rstrip("/").split("/")[-1].replace("@", ""))
                 handles.append(handle)
         return list(set(handles))
     except Exception as e:
