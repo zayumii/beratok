@@ -53,12 +53,23 @@ def get_beraland_handles():
     try:
         html = requests.get("https://app.beraland.xyz/dl/Ecosystem").text
         soup = BeautifulSoup(html, "html.parser")
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            if "twitter.com" in href:
-                handle = href.rstrip("/").split("/")[-1].replace("@", "")
-                if handle and handle not in handles:
-                    handles.append(handle)
+        project_cards = soup.find_all("a", href=True)
+        for card in project_cards:
+            project_url = card["href"]
+            if project_url.startswith("/dl/Ecosystem/m/"):
+                full_url = f"https://app.beraland.xyz{project_url}"
+                try:
+                    project_html = requests.get(full_url).text
+                    project_soup = BeautifulSoup(project_html, "html.parser")
+                    for a in project_soup.find_all("a", href=True):
+                        href = a["href"]
+                        if "twitter.com" in href:
+                            handle = href.rstrip("/").split("/")[-1].replace("@", "")
+                            if handle and handle not in handles:
+                                handles.append(handle)
+                            break
+                except:
+                    continue
     except Exception as e:
         st.warning(f"⚠️ Failed to scrape BeraLand front-end: {e}")
     return handles
