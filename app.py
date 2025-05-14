@@ -50,8 +50,9 @@ def get_recent_tweets(username, max_count=5):
 def get_project_handles():
     url = "https://raw.githubusercontent.com/zayumii/beratok/main/Beraco%20-%20Sheet2.csv"
     try:
-        df = pd.read_csv(url, sep=";")
-        twitter_links = df["Twitter"] if "Twitter" in df.columns else []
+        df = pd.read_csv(url)
+        df.columns = df.columns.str.strip()
+        twitter_links = df["Official Twitter"] if "Official Twitter" in df.columns else []
         handles = []
         for link in twitter_links:
             if isinstance(link, str) and "twitter.com" in link:
