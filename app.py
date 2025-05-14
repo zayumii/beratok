@@ -60,7 +60,7 @@ def get_project_handles():
                 parsed = urllib.parse.urlparse(link)
                 path = parsed.path.rstrip("/")
                 if path:
-                    handle = path.split("/")[-1].replace("@", "")
+                    handle = path.split("/")[-1].split("?")[0].replace("@", "")
                     handles.append(handle)
         return list(set(handles))
     except Exception as e:
