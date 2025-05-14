@@ -7,6 +7,7 @@ import pandas as pd
 from dateutil import parser
 import subprocess
 import json
+import urllib.parse
 
 # --- Token Scoring ---
 TOKEN_KEYWORDS = ['airdrop', 'token', 'launch', 'points', 'claim', 'rewards', 'mainnet']
@@ -56,8 +57,11 @@ def get_project_handles():
         handles = []
         for link in twitter_links:
             if isinstance(link, str) and "twitter.com" in link:
-                handle = re.sub(r'\?.*$', '', link.rstrip("/").split("/")[-1].replace("@", ""))
-                handles.append(handle)
+                parsed = urllib.parse.urlparse(link)
+                path = parsed.path.rstrip("/")
+                if path:
+                    handle = path.split("/")[-1].replace("@", "")
+                    handles.append(handle)
         return list(set(handles))
     except Exception as e:
         st.error(f"❌ Failed to load handles from GitHub CSV: {e}")
